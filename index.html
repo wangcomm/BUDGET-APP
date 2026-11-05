@@ -355,7 +355,7 @@ function viewHome(){
       return `<div style="margin:4px 0 12px"><div class="flex" style="justify-content:space-between;font-size:14px">
         <span>${esc(c)}</span><span class="${l ? 't-' + l : ''}">${money(s).replace('NT$ ','')} / ${money(b).replace('NT$ ','')}${l === 'over' ? ' 超支' : l === 'warn' ? ' 快用完' : ''}</span></div>
         <div class="bar ${l}"><i style="width:${Math.min(100, s / b * 100)}%"></i></div></div>`; }).join('') : '<div class="empty">尚未設定本月預算</div>'}
-    ${plan.map(p => `<div class="row"><div class="main"><div class="title"><span class="tag">${esc(p.category)}</span>${esc(p.name)}</div></div>
+    ${plan.map(p => `<div class="row"><div class="main"><div class="title">${esc(p.category)}</div></div>
       <div class="amt">${money(p.amount).replace('NT$ ','')}</div><button class="icon-btn" style="font-size:16px" data-act="delPlan" data-id="${esc(p.id)}">✕</button></div>`).join('')}
     <div class="flex" style="justify-content:space-between"><button class="linkbtn" data-act="addPlan">＋ 新增預計開支</button>
     ${!plan.length && (S.plans[addMonth(m,-1)]?.items || []).length ? '<button class="linkbtn" data-act="copyPlan">複製上月預算</button>' : ''}</div>
@@ -580,12 +580,12 @@ const acts = {
     }
     openTx(id); },
   addPlan: () => simpleForm('新增預計開支', [
-      { name:'name', label:'項目', ph:'例如：伙食費' },
       { name:'category', label:'分類', options:cfg().expenseCats },
       { name:'amount', label:'預計金額 (NT$)', type:'number' }],
-    v => { if (!v.name || num(v.amount) <= 0) { toast('請填項目與金額'); return false; }
-      const items = [...(S.plans[S.month]?.items || []), { id:newId(), name:v.name, category:v.category, amount:num(v.amount) }];
-      Store.set('plans', S.month, { items }); }),
+    v => { if (num(v.amount) <= 0) { toast('請填金額'); return false; }
+      const old = S.plans[S.month]?.items || [], had = old.some(p => p.category === v.category);
+      const items = [...old.filter(p => p.category !== v.category), { id:newId(), name:v.category, category:v.category, amount:num(v.amount) }];
+      Store.set('plans', S.month, { items }); if (had) toast('已更新這個分類的預算'); }),
   delPlan: b => Store.set('plans', S.month, { items:(S.plans[S.month]?.items || []).filter(p => p.id !== b.dataset.id) }),
   copyPlan: () => { Store.set('plans', S.month, { items:(S.plans[addMonth(S.month,-1)]?.items || []).map(p => ({ ...p, id:newId() })) }); toast('已複製上月預算'); },
   addWish: () => simpleForm('新增想買的東西', [
