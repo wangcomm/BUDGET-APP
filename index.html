@@ -250,9 +250,10 @@ async function getRate(cur){
 const ACC_TYPES = { cash:'現金', bank:'銀行', card:'信用卡', other:'其他' };
 const accList = () => Object.entries(S.accounts).map(([id,a]) => ({ id, ...a })).sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0));
 const accName = id => S.accounts[id]?.name || '';
-function accDelta(id){
+function accDelta(id, upto){
   let s = 0;
   for (const t of Object.values(S.tx)) {
+    if (upto && (t.date || '') > upto) continue;
     const v = num(t.twd);
     if (t.type === 'income' && t.account === id) s += v;
     else if (t.type === 'expense' && t.account === id) s -= v;
@@ -260,7 +261,8 @@ function accDelta(id){
   }
   return s;
 }
-const accBal = a => num(a.initial) + accDelta(a.id);
+const accBal = (a, upto) => num(a.initial) + accDelta(a.id, upto);
+const monthEnd = m => `${m}-${pad(new Date(+m.slice(0,4), +m.slice(5), 0).getDate())}`;
 function guessAcc(pay){
   const list = accList(); if (!list.length) return '';
   const want = pay === '現金' ? 'cash' : pay === '信用卡' ? 'card' : '';
@@ -328,9 +330,10 @@ function viewHome(){
       <div class="k">本月支出</div><div class="v"><small>$</small>${Math.round(exp).toLocaleString('zh-TW')}</div></div>
   </div>
 
-  ${(() => { const acs = accList(); const total = acs.reduce((a,x) => a + accBal(x), 0);
-    return `<div class="card"><h2>我的帳戶 <small>總資產 ${money(total)}</small></h2>
-    ${acs.length ? acs.map(a => { const b = accBal(a);
+  ${(() => { const acs = accList(), past = m < thisMonth(), upto = past ? monthEnd(m) : '';
+    const total = acs.reduce((a,x) => a + accBal(x, upto), 0);
+    return `<div class="card"><h2>我的帳戶 <small>${past ? +m.slice(5) + ' 月底 ' : ''}總資產 ${money(total)}</small></h2>
+    ${acs.length ? acs.map(a => { const b = accBal(a, upto);
       return `<div class="row"><div class="main"><div class="title"><span class="tag">${ACC_TYPES[a.type] || '其他'}</span>${esc(a.name)}</div></div>
         <div class="amt ${b < 0 ? 'exp' : ''}">${a.type === 'card' ? (b < 0 ? '未繳 ' + money(-b) : money(b)) : money(b)}</div></div>`; }).join('')
       : '<div class="empty">還沒有設定帳戶，填入手上現金和銀行存款，就能隨時看到還有多少錢</div>'}
