@@ -68,6 +68,8 @@ header h1{font-size:16px;font-weight:600;margin:0;flex:1;text-align:center}
 .btn.small{padding:6px 14px;font-size:13px}
 .btn.danger{background:var(--bad);color:#fff}
 .btn.block{width:100%;padding:14px;font-size:16px}
+.arrow-btn{flex:none;width:42px;height:42px;border-radius:50%;border:0;background:var(--pri);color:var(--bg);font-size:18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.arrow-btn:active{transform:scale(.94)}
 .linkbtn{background:none;border:0;color:var(--text);cursor:pointer;padding:8px 0;font-size:13px;font-weight:500;opacity:.75}
 .empty{color:var(--muted);font-size:13px;padding:6px 0}
 .done .title{text-decoration:line-through;color:var(--muted)}
@@ -429,7 +431,7 @@ function viewSettings(){
   const c = cfg();
   const chipEdit = (key, title) => `<div class="card"><h2>${title}</h2><div class="chips">
     ${c[key].map((x,i) => `<span class="chip">${esc(x)}<span class="x" data-act="delOpt" data-key="${key}" data-i="${i}">✕</span></span>`).join('')}</div>
-    <div class="flex" style="margin-top:10px"><input class="in-f" id="new_${key}" placeholder="新增…"><button class="btn" data-act="addOpt" data-key="${key}">新增</button></div></div>`;
+    <div class="flex" style="margin-top:10px"><input class="in-f" id="new_${key}" placeholder="新增…"><button class="arrow-btn" data-act="addOpt" data-key="${key}" aria-label="新增">→</button></div></div>`;
   const rs = Object.entries(S.recur).map(([id,r]) => ({ id, ...r }));
   return `<div class="card"><h2>帳號</h2>
       <div class="hint">${Store.mode === 'firebase' ? '已登入：' + esc(Store.user.email || Store.user.displayName || '') + '（資料雲端同步）' : '本機試用模式（未同步）'}</div>
@@ -438,13 +440,13 @@ function viewSettings(){
     <div class="card"><h2>帳戶餘額 <small>點帳戶可校正餘額</small></h2>
       ${accList().length ? accList().map(a => { const b = accBal(a); return `<div class="row tap" data-act="editAcc" data-id="${esc(a.id)}"><div class="main"><div class="title"><span class="tag">${ACC_TYPES[a.type] || '其他'}</span>${esc(a.name)}</div></div>
         <div class="amt ${b < 0 ? 'exp' : ''}">${money(b)}</div></div>`; }).join('') : '<div class="empty">例如：手上現金、銀行存款、信用卡</div>'}
-      <div class="flex" style="justify-content:space-between"><button class="linkbtn" data-act="editAcc">＋ 新增帳戶</button>
-      ${accList().length ? '' : '<button class="btn small" data-act="defaultAcc">建立現金＋銀行</button>'}</div></div>
+      <div class="flex" style="justify-content:flex-end;margin-top:6px">
+      ${accList().length ? '' : '<button class="btn small" data-act="defaultAcc">建立現金＋銀行</button>'}<button class="arrow-btn" data-act="editAcc" aria-label="新增帳戶">→</button></div></div>
     <div class="card"><h2>固定收支 <small>每月自動帶入</small></h2>
       ${rs.length ? rs.map(r => `<div class="row tap" data-act="editRecur" data-id="${esc(r.id)}"><div class="main"><div class="title"><span class="tag">${esc(r.category)}</span>${esc(r.name)}</div>
         <div class="sub">每月 ${r.day} 號${r.pay ? ' · ' + esc(r.pay) : ''}${r.paused ? ' · 已暫停' : ''}</div></div>
         <div class="amt ${r.type === 'expense' ? 'exp' : 'inc'}">${r.type === 'expense' ? '-' : '+'}${money(r.amount).replace('NT$ ','')}</div></div>`).join('') : '<div class="empty">例如房租、訂閱、薪水</div>'}
-      <button class="linkbtn" data-act="editRecur">＋ 新增固定收支</button></div>
+      <div class="flex" style="justify-content:flex-end;margin-top:6px"><button class="arrow-btn" data-act="editRecur" aria-label="新增固定收支">→</button></div></div>
     ${chipEdit('expenseCats','支出分類')}${chipEdit('incomeCats','收入種類')}${chipEdit('payMethods','付款方式')}`;
 }
 
