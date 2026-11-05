@@ -352,11 +352,9 @@ function viewHome(){
 
   <div class="card"><h2>預計開支 <small>依分類的預算</small></h2>
     ${Object.keys(budCat).length ? Object.entries(budCat).map(([c,b]) => { const s = byCat[c] || 0, l = level(s,b);
-      return `<div style="margin:4px 0 12px"><div class="flex" style="justify-content:space-between;font-size:14px">
+      return `<div data-act="editPlan" data-cat="${esc(c)}" style="margin:4px 0 12px;cursor:pointer"><div class="flex" style="justify-content:space-between;font-size:14px">
         <span>${esc(c)}</span><span class="${l ? 't-' + l : ''}">${money(s).replace('NT$ ','')} / ${money(b).replace('NT$ ','')}${l === 'over' ? ' 超支' : l === 'warn' ? ' 快用完' : ''}</span></div>
         <div class="bar ${l}"><i style="width:${Math.min(100, s / b * 100)}%"></i></div></div>`; }).join('') : '<div class="empty">尚未設定本月預算</div>'}
-    ${plan.map(p => `<div class="row"><div class="main"><div class="title">${esc(p.category)}</div></div>
-      <div class="amt">${money(p.amount).replace('NT$ ','')}</div><button class="icon-btn" style="font-size:16px" data-act="delPlan" data-id="${esc(p.id)}">✕</button></div>`).join('')}
     <div class="flex" style="justify-content:space-between"><button class="linkbtn" data-act="addPlan">＋ 新增預計開支</button>
     ${!plan.length && (S.plans[addMonth(m,-1)]?.items || []).length ? '<button class="linkbtn" data-act="copyPlan">複製上月預算</button>' : ''}</div>
   </div>
@@ -586,6 +584,14 @@ const acts = {
       const old = S.plans[S.month]?.items || [], had = old.some(p => p.category === v.category);
       const items = [...old.filter(p => p.category !== v.category), { id:newId(), name:v.category, category:v.category, amount:num(v.amount) }];
       Store.set('plans', S.month, { items }); if (had) toast('已更新這個分類的預算'); }),
+  editPlan: b => { const c = b.dataset.cat, items = S.plans[S.month]?.items || [];
+    const cur = items.filter(p => p.category === c).reduce((a,p) => a + num(p.amount), 0);
+    simpleForm(`${esc(c)} 的預算`, [{ name:'amount', label:'預計金額 (NT$)', type:'number', value:cur }],
+      v => { if (num(v.amount) <= 0) { toast('請填金額'); return false; }
+        const first = items.findIndex(p => p.category === c), rest = items.filter(p => p.category !== c);
+        rest.splice(first < 0 ? rest.length : first, 0, { id:newId(), name:c, category:c, amount:num(v.amount) });
+        Store.set('plans', S.month, { items:rest }); },
+      () => Store.set('plans', S.month, { items:items.filter(p => p.category !== c) })); },
   delPlan: b => Store.set('plans', S.month, { items:(S.plans[S.month]?.items || []).filter(p => p.id !== b.dataset.id) }),
   copyPlan: () => { Store.set('plans', S.month, { items:(S.plans[addMonth(S.month,-1)]?.items || []).map(p => ({ ...p, id:newId() })) }); toast('已複製上月預算'); },
   addWish: () => simpleForm('新增想買的東西', [
