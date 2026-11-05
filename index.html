@@ -218,16 +218,31 @@ function start(store){
 
 /* ---------- 固定收支：每月自動帶入 ---------- */
 const tried = new Set();
+let applyingRecur = false;
 function applyRecurring(){
-  if (!S.fresh.recur) return;
-  const m = thisMonth();
+  if (!S.fresh.recur || applyingRecur) return;
+  applyingRecur = true;
+  try { applyRecurringInner(); } finally { applyingRecur = false; }
+}
+function applyRecurringInner(){
+  // 到了扣款日才寫入；若有幾個月沒打開 App，會把錯過的月份補上
+  const now = thisMonth(), td = today();
   for (const [id, r] of Object.entries(S.recur)) {
-    if (r.paused || (r.startMonth || m) > m || (r.applied || []).includes(m)) continue;
-    if (tried.has(id + m)) continue; tried.add(id + m);
-    const dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
-    Store.set('tx', `r_${id}_${m}`, { type:r.type, amount:num(r.amount), currency:'TWD', rate:1, twd:num(r.amount),
-      category:r.category, pay:r.pay || '', account:r.account || '', date:`${m}-${pad(Math.min(r.day || 1, dim))}`, note:r.name, recurId:id, createdAt:Date.now() });
-    Store.set('recur', id, { applied:[...(r.applied || []), m] }, true);
+    if (r.paused) continue;
+    const applied = [...(r.applied || [])];
+    let m = r.startMonth || now, n = 0, changed = false;
+    if (m < addMonth(now, -24)) m = addMonth(now, -24);
+    for (; m <= now && n < 30; m = addMonth(m, 1), n++) {
+      if (applied.includes(m) || tried.has(id + m)) continue;
+      const dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
+      const date = `${m}-${pad(Math.min(r.day || 1, dim))}`;
+      if (date > td) continue;
+      tried.add(id + m);
+      Store.set('tx', `r_${id}_${m}`, { type:r.type, amount:num(r.amount), currency:'TWD', rate:1, twd:num(r.amount),
+        category:r.category, pay:r.pay || '', account:r.account || '', date, note:r.name, recurId:id, createdAt:Date.now() });
+      applied.push(m); changed = true;
+    }
+    if (changed) Store.set('recur', id, { applied }, true);
   }
 }
 
@@ -330,7 +345,7 @@ function viewHome(){
       <div class="k">本月支出</div><div class="v"><small>$</small>${Math.round(exp).toLocaleString('zh-TW')}</div></div>
   </div>
 
-  ${(() => { const acs = accList(), past = m < thisMonth(), upto = past ? monthEnd(m) : '';
+  ${(() => { const acs = accList(), past = m < thisMonth(), upto = past ? monthEnd(m) : today();
     const total = acs.reduce((a,x) => a + accBal(x, upto), 0);
     return `<div class="card"><h2>我的帳戶 <small>${past ? +m.slice(5) + ' 月底 ' : ''}總資產 ${money(total)}</small></h2>
     ${acs.length ? acs.map(a => { const b = accBal(a, upto);
@@ -439,7 +454,7 @@ function viewSettings(){
       <div class="flex" style="margin-top:10px">${Store.mode === 'firebase' ? '<button class="btn ghost" data-act="logout">登出</button>' : ''}
       <button class="btn ghost" data-act="export">匯出備份 (JSON)</button></div></div>
     <div class="card"><h2>帳戶餘額 <small>點帳戶可校正餘額</small></h2>
-      ${accList().length ? accList().map(a => { const b = accBal(a); return `<div class="row tap" data-act="editAcc" data-id="${esc(a.id)}"><div class="main"><div class="title"><span class="tag">${ACC_TYPES[a.type] || '其他'}</span>${esc(a.name)}</div></div>
+      ${accList().length ? accList().map(a => { const b = accBal(a, today()); return `<div class="row tap" data-act="editAcc" data-id="${esc(a.id)}"><div class="main"><div class="title"><span class="tag">${ACC_TYPES[a.type] || '其他'}</span>${esc(a.name)}</div></div>
         <div class="amt ${b < 0 ? 'exp' : ''}">${money(b)}</div></div>`; }).join('') : '<div class="empty">例如：手上現金、銀行存款、信用卡</div>'}
       <div class="flex" style="justify-content:flex-end;margin-top:6px">
       ${accList().length ? '' : '<button class="btn small" data-act="defaultAcc">建立現金＋銀行</button>'}<button class="arrow-btn" data-act="editAcc" aria-label="新增帳戶">→</button></div></div>
@@ -627,14 +642,14 @@ const acts = {
     Store.add('accounts', { name:'銀行存款', type:'bank', initial:0, createdAt:t + 1 });
     toast('已建立，點帳戶填入目前餘額'); },
   editAcc: b => { const id = b.dataset.id, a = id ? { id, ...S.accounts[id] } : { type:'cash' };
-    const cur = id ? accBal(a) : 0;
+    const cur = id ? accBal(a, today()) : 0;
     simpleForm(id ? '編輯帳戶' : '新增帳戶', [
       { name:'name', label:'帳戶名稱', ph:'例如：手上現金、郵局、國泰', value:a.name },
       { name:'type', label:'類型', options:Object.entries(ACC_TYPES), value:a.type },
       { name:'bal', label:'目前餘額 (NT$)　信用卡請填「目前未繳金額」', type:'number', value:a.type === 'card' ? Math.round(-cur * 100) / 100 : Math.round(cur * 100) / 100 }],
       v => { if (!v.name) { toast('請填帳戶名稱'); return false; }
         const bal = v.type === 'card' ? -num(v.bal) : num(v.bal);
-        if (id) Store.set('accounts', id, { name:v.name, type:v.type, initial:bal - accDelta(id) }, true);
+        if (id) Store.set('accounts', id, { name:v.name, type:v.type, initial:bal - accDelta(id, today()) }, true);
         else Store.add('accounts', { name:v.name, type:v.type, initial:bal, createdAt:Date.now() });
         toast('已更新餘額'); },
       id ? () => Store.del('accounts', id) : null); },
@@ -662,7 +677,7 @@ const acts = {
           day:Math.min(31, Math.max(1, Math.round(num(v.day)) || 1)), paused:!!v.paused };
         if (id) Store.set('recur', id, data, true);
         else Store.add('recur', { ...data, startMonth:thisMonth(), applied:[] });
-        toast('本月起每月自動帶入'); },
+        toast('每月到扣款日會自動記入'); },
       id ? () => Store.del('recur', id) : null); },
   addOpt: b => { const k = b.dataset.key, inp = $('#new_' + k), v = inp.value.trim();
     if (!v) return; if (cfg()[k].includes(v)) return toast('已存在');
