@@ -8,6 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>我的記帳本</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="記帳本">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--bg:#eef0ee;--glass:rgba(255,255,255,.62);--glass-b:rgba(255,255,255,.75);--card:#fff;--text:#16181a;--muted:#8a8f93;--line:rgba(22,24,26,.08);--pri:#16181a;--lime:#d6ef4b;--pri-soft:rgba(22,24,26,.06);--ok:#9bbf2e;--warn:#e8a23a;--bad:#d9534f;--inc:#6f8a1f;--exp:#b4584b;--shadow:0 8px 30px rgba(40,44,30,.08);--r:26px}
@@ -123,7 +128,7 @@ label.f{display:block;font-size:12px;color:var(--muted);margin:12px 0 6px}
 <div id="sheet" class="sheet hidden"><div class="bg"></div><div class="body" id="sheetBody"></div></div>
 <div id="toast"></div>
 <div id="login" class="hidden">
-  <div style="font-size:48px">💰</div>
+  <img src="icon-192.png" alt="" width="88" height="88" style="border-radius:22px;box-shadow:0 8px 24px rgba(60,80,20,.25)">
   <h2 style="margin:0">我的記帳本</h2>
   <p style="color:var(--muted);margin:0">登入後手機、電腦資料自動同步</p>
   <button class="btn block" id="loginBtn" style="max-width:280px">使用 Google 帳號登入</button>
@@ -166,7 +171,7 @@ const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(()=>t.classList.remove('show'), 2200); }
 
 /* ---------- 狀態 ---------- */
-const S = { tx:{}, plans:{}, wish:{}, recur:{}, goals:{}, settings:{}, fresh:{}, month: thisMonth(), tab:'home',
+const S = { tx:{}, plans:{}, wish:{}, recur:{}, goals:{}, settings:{}, accounts:{}, fresh:{}, month: thisMonth(), tab:'home',
   filter:{ q:'', type:'', cat:'', from:'', to:'' } };
 let Store = null;
 const cfg = () => ({ ...DEFAULTS, ...(S.settings.main || {}) });
@@ -203,7 +208,7 @@ function firebaseStore(user, F, fdb){
 
 function start(store){
   Store = store;
-  ['tx','plans','wish','recur','goals','settings'].forEach(c => store.sub(c, (o, fromCache) => {
+  ['tx','plans','wish','recur','goals','settings','accounts'].forEach(c => store.sub(c, (o, fromCache) => {
     S[c] = o; if (!fromCache) S.fresh[c] = true;
     applyRecurring(); render();
   }));
@@ -219,7 +224,7 @@ function applyRecurring(){
     if (tried.has(id + m)) continue; tried.add(id + m);
     const dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
     Store.set('tx', `r_${id}_${m}`, { type:r.type, amount:num(r.amount), currency:'TWD', rate:1, twd:num(r.amount),
-      category:r.category, pay:r.pay || '', date:`${m}-${pad(Math.min(r.day || 1, dim))}`, note:r.name, recurId:id, createdAt:Date.now() });
+      category:r.category, pay:r.pay || '', account:r.account || '', date:`${m}-${pad(Math.min(r.day || 1, dim))}`, note:r.name, recurId:id, createdAt:Date.now() });
     Store.set('recur', id, { applied:[...(r.applied || []), m] }, true);
   }
 }
@@ -237,6 +242,30 @@ async function getRate(cur){
   const v = rateData.rates[cur];
   if (!v) throw new Error('rate');
   return { rate: 1 / v, updated: rateData.time_last_update_utc };
+}
+
+/* ---------- 帳戶餘額 ---------- */
+const ACC_TYPES = { cash:'現金', bank:'銀行', card:'信用卡', other:'其他' };
+const accList = () => Object.entries(S.accounts).map(([id,a]) => ({ id, ...a })).sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0));
+const accName = id => S.accounts[id]?.name || '';
+function accDelta(id){
+  let s = 0;
+  for (const t of Object.values(S.tx)) {
+    const v = num(t.twd);
+    if (t.type === 'income' && t.account === id) s += v;
+    else if (t.type === 'expense' && t.account === id) s -= v;
+    else if (t.type === 'transfer') { if (t.account === id) s -= v; if (t.toAccount === id) s += v; }
+  }
+  return s;
+}
+const accBal = a => num(a.initial) + accDelta(a.id);
+function guessAcc(pay){
+  const list = accList(); if (!list.length) return '';
+  const want = pay === '現金' ? 'cash' : pay === '信用卡' ? 'card' : '';
+  const hit = want && list.find(a => a.type === want);
+  if (hit) return hit.id;
+  if (S.lastAcc && S.accounts[S.lastAcc]) return S.lastAcc;
+  return (list.find(a => a.type === 'cash') || list[0]).id;
 }
 
 /* ---------- 畫面 ---------- */
@@ -258,11 +287,14 @@ function txRow(t){
   if (t.type === 'saving') return `<div class="row tap" data-act="editTx" data-id="${esc(t.id)}">
     <div class="main"><div class="title"><span class="tag">存錢</span>${esc(t.note || '')}</div><div class="sub">${esc(t.date)}</div></div>
     <div class="amt sav">${num(t.twd) >= 0 ? '存 ' : '取 '}${money(Math.abs(num(t.twd))).replace('NT$ ','')}</div></div>`;
+  if (t.type === 'transfer') return `<div class="row tap" data-act="editTx" data-id="${esc(t.id)}">
+    <div class="main"><div class="title"><span class="tag">轉帳</span>${esc(accName(t.account) || '?')} → ${esc(accName(t.toAccount) || '?')}${t.note ? '　' + esc(t.note) : ''}</div><div class="sub">${esc(t.date)}</div></div>
+    <div class="amt sav">${money(t.twd).replace('NT$ ','')}</div></div>`;
   const isExp = t.type === 'expense';
   const orig = t.currency && t.currency !== 'TWD' ? `<div class="sub">${esc(t.currency)} ${num(t.amount).toLocaleString('zh-TW')}</div>` : '';
   return `<div class="row tap" data-act="editTx" data-id="${esc(t.id)}">
     <div class="main"><div class="title"><span class="tag">${esc(t.category)}</span>${esc(t.note || '')}</div>
-    <div class="sub">${esc(t.date)}${t.pay ? ' · ' + esc(t.pay) : ''}${t.recurId ? ' · 固定' : ''}</div></div>
+    <div class="sub">${esc(t.date)}${t.pay ? ' · ' + esc(t.pay) : ''}${accName(t.account) ? ' · ' + esc(accName(t.account)) : ''}${t.recurId ? ' · 固定' : ''}</div></div>
     <div class="amt ${isExp ? 'exp' : 'inc'}">${isExp ? '-' : '+'}${money(t.twd).replace('NT$ ','')}${orig}</div></div>`;
 }
 const level = (spent, budget) => budget <= 0 ? (spent > 0 ? 'over' : '') : spent / budget >= 1 ? 'over' : spent / budget >= 0.8 ? 'warn' : '';
@@ -293,6 +325,15 @@ function viewHome(){
     <div class="gcard g-rose"><div class="gtop"><span class="gicon">－</span><button class="garrow" data-act="goList" data-type="expense" aria-label="看支出紀錄">↗</button></div><span class="dots"></span>
       <div class="k">本月支出</div><div class="v"><small>$</small>${Math.round(exp).toLocaleString('zh-TW')}</div></div>
   </div>
+
+  ${(() => { const acs = accList(); const total = acs.reduce((a,x) => a + accBal(x), 0);
+    return `<div class="card"><h2>我的帳戶 <small>總資產 ${money(total)}</small></h2>
+    ${acs.length ? acs.map(a => { const b = accBal(a);
+      return `<div class="row"><div class="main"><div class="title"><span class="tag">${ACC_TYPES[a.type] || '其他'}</span>${esc(a.name)}</div></div>
+        <div class="amt ${b < 0 ? 'exp' : ''}">${a.type === 'card' ? (b < 0 ? '未繳 ' + money(-b) : money(b)) : money(b)}</div></div>`; }).join('')
+      : '<div class="empty">還沒有設定帳戶，填入手上現金和銀行存款，就能隨時看到還有多少錢</div>'}
+    <div class="flex" style="justify-content:space-between">
+      <button class="linkbtn" ${acs.length ? 'data-act="transfer"' : 'data-act="goTab" data-tab="settings"'}>${acs.length ? '⇄ 轉帳 / 提款 / 繳卡費' : '＋ 設定帳戶餘額'}</button></div></div>`; })()}
 
   <div class="card"><h2>存錢目標 <small>本月存下 ${money(saved)}</small></h2>
     ${goals.length ? goals.map(g => { const p = g.target ? Math.min(100, num(g.saved) / num(g.target) * 100) : 0;
@@ -334,12 +375,12 @@ function viewList(){
   const res = txList().filter(t =>
     (!f.type || t.type === f.type) && (!f.cat || t.category === f.cat) &&
     (!f.from || t.date >= f.from) && (!f.to || t.date <= f.to) &&
-    (!q || [t.note, t.category, t.pay, t.currency].join(' ').toLowerCase().includes(q))
+    (!q || [t.note, t.category, t.pay, t.currency, accName(t.account), accName(t.toAccount)].join(' ').toLowerCase().includes(q))
   ).sort((a,b) => (b.date || '').localeCompare(a.date || ''));
   return `<div class="card">
     <input class="in-f" id="fq" placeholder="搜尋關鍵字（備註、分類、付款方式）" value="${esc(f.q)}">
     <div class="flex" style="margin-top:8px">
-      <select class="in-f" id="ftype"><option value="">全部</option><option value="expense" ${f.type==='expense'?'selected':''}>支出</option><option value="income" ${f.type==='income'?'selected':''}>收入</option><option value="saving" ${f.type==='saving'?'selected':''}>存錢</option></select>
+      <select class="in-f" id="ftype"><option value="">全部</option><option value="expense" ${f.type==='expense'?'selected':''}>支出</option><option value="income" ${f.type==='income'?'selected':''}>收入</option><option value="saving" ${f.type==='saving'?'selected':''}>存錢</option><option value="transfer" ${f.type==='transfer'?'selected':''}>轉帳</option></select>
       <select class="in-f" id="fcat"><option value="">所有分類</option>${cats.map(x => `<option ${f.cat===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
     </div>
     <div class="flex" style="margin-top:8px"><input type="date" class="in-f" id="ffrom" value="${esc(f.from)}"><span>～</span><input type="date" class="in-f" id="fto" value="${esc(f.to)}"></div>
@@ -394,6 +435,11 @@ function viewSettings(){
       <div class="hint">${Store.mode === 'firebase' ? '已登入：' + esc(Store.user.email || Store.user.displayName || '') + '（資料雲端同步）' : '本機試用模式（未同步）'}</div>
       <div class="flex" style="margin-top:10px">${Store.mode === 'firebase' ? '<button class="btn ghost" data-act="logout">登出</button>' : ''}
       <button class="btn ghost" data-act="export">匯出備份 (JSON)</button></div></div>
+    <div class="card"><h2>帳戶餘額 <small>點帳戶可校正餘額</small></h2>
+      ${accList().length ? accList().map(a => { const b = accBal(a); return `<div class="row tap" data-act="editAcc" data-id="${esc(a.id)}"><div class="main"><div class="title"><span class="tag">${ACC_TYPES[a.type] || '其他'}</span>${esc(a.name)}</div></div>
+        <div class="amt ${b < 0 ? 'exp' : ''}">${money(b)}</div></div>`; }).join('') : '<div class="empty">例如：手上現金、銀行存款、信用卡</div>'}
+      <div class="flex" style="justify-content:space-between"><button class="linkbtn" data-act="editAcc">＋ 新增帳戶</button>
+      ${accList().length ? '' : '<button class="btn small" data-act="defaultAcc">建立現金＋銀行</button>'}</div></div>
     <div class="card"><h2>固定收支 <small>每月自動帶入</small></h2>
       ${rs.length ? rs.map(r => `<div class="row tap" data-act="editRecur" data-id="${esc(r.id)}"><div class="main"><div class="title"><span class="tag">${esc(r.category)}</span>${esc(r.name)}</div>
         <div class="sub">每月 ${r.day} 號${r.pay ? ' · ' + esc(r.pay) : ''}${r.paused ? ' · 已暫停' : ''}</div></div>
@@ -417,25 +463,42 @@ function openTx(id, preset = {}){
   const old = id ? S.tx[id] : null;
   const d = { type:'expense', amount:'', currency:'TWD', rate:1, category:'', pay:'', note:'',
     date: S.month === thisMonth() ? today() : S.month + '-01', ...preset, ...(old || {}) };
+  if (d.type === 'transfer') d.category = '轉帳';
   if (!d.category) d.category = catOrder(d.type)[0] || '';
+  if (!old && d.account === undefined) d.account = d.type === 'transfer' ? (accList().find(a => a.type === 'bank')?.id || '') : guessAcc(d.pay);
   const body = el => {
+    const accs = accList();
+    const accChips = (cur, act, excl) => accs.filter(a => a.id !== excl).map(a => `<button type="button" class="chip ${a.id === cur ? 'on' : ''}" data-${act}="${esc(a.id)}">${esc(a.name)}</button>`).join('');
+    const isTr = d.type === 'transfer';
     const chipsHtml = (arr, cur, act) => arr.map(x => `<button type="button" class="chip ${x === cur ? 'on' : ''}" data-${act}="${esc(x)}">${esc(x)}</button>`).join('');
     el.innerHTML = `<h3>${old ? '編輯紀錄' : '記一筆'} <button class="icon-btn" data-close>✕</button></h3>
-      <div class="seg"><button type="button" data-type="expense" class="${d.type === 'expense' ? 'on' : ''}">支出</button><button type="button" data-type="income" class="${d.type === 'income' ? 'on' : ''}">收入</button></div>
+      <div class="seg"><button type="button" data-type="expense" class="${d.type === 'expense' ? 'on' : ''}">支出</button><button type="button" data-type="income" class="${d.type === 'income' ? 'on' : ''}">收入</button><button type="button" data-type="transfer" class="${isTr ? 'on' : ''}">轉帳</button></div>
       <div class="flex" style="margin-top:12px"><select class="in-f" id="cur" style="width:92px;flex:none">${CURRENCIES.map(x => `<option ${x === d.currency ? 'selected' : ''}>${x}</option>`).join('')}</select>
         <input class="in-f amount-in" id="amt" inputmode="decimal" placeholder="0" value="${esc(d.amount)}"></div>
       <div id="rateBox" class="hint"></div>
+      ${isTr ? (accs.length < 2 ? '<div class="banner" style="margin-top:12px">轉帳需要至少兩個帳戶，請先到「設定 → 帳戶餘額」新增。</div>' :
+        `<label class="f">從哪個帳戶轉出</label><div class="chips">${accChips(d.account, 'acc')}</div>
+         <label class="f">轉入哪個帳戶（提款→現金、繳卡費→信用卡）</label><div class="chips">${accChips(d.toAccount, 'toacc', d.account)}</div>`) : `
       <label class="f">${d.type === 'expense' ? '分類' : '收入種類'}</label><div class="chips">${chipsHtml(catOrder(d.type), d.category, 'cat')}</div>
       <label class="f">付款方式</label><div class="chips">${chipsHtml(cfg().payMethods, d.pay, 'pay')}</div>
+      ${accs.length ? `<label class="f">${d.type === 'expense' ? '從哪個帳戶扣' : '存進哪個帳戶'}</label><div class="chips">${accChips(d.account, 'acc')}</div>` : ''}`}
       <div class="flex"><div style="flex:1"><label class="f">日期</label><input type="date" class="in-f" id="date" value="${esc(d.date)}"></div></div>
       <label class="f">備註</label><input class="in-f" id="note" placeholder="例如：午餐、捷運" value="${esc(d.note)}">
       <button class="btn block" id="save" style="margin-top:16px">儲存</button>
       ${old ? '<button class="btn block danger" id="del" style="margin-top:8px">刪除</button>' : ''}`;
     const sync = () => { d.amount = el.querySelector('#amt').value; d.date = el.querySelector('#date').value; d.note = el.querySelector('#note').value; };
     el.querySelector('[data-close]').onclick = closeSheet;
-    el.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { sync(); d.type = b.dataset.type; d.category = catOrder(d.type)[0] || ''; body(el); });
+    el.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { sync(); const was = d.type; d.type = b.dataset.type;
+      d.category = d.type === 'transfer' ? '轉帳' : catOrder(d.type)[0] || '';
+      if (d.type === 'transfer' && was !== 'transfer') { d.account = accs.find(a => a.type === 'bank')?.id || accs[0]?.id || ''; d.toAccount = ''; }
+      if (d.type !== 'transfer' && was === 'transfer') d.account = guessAcc(d.pay);
+      body(el); });
+    el.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => { sync(); d.account = d.account === b.dataset.acc && !isTr ? '' : b.dataset.acc; if (d.toAccount === d.account) d.toAccount = ''; body(el); });
+    el.querySelectorAll('[data-toacc]').forEach(b => b.onclick = () => { sync(); d.toAccount = b.dataset.toacc; body(el); });
     el.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { sync(); d.category = b.dataset.cat; body(el); });
-    el.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => { sync(); d.pay = d.pay === b.dataset.pay ? '' : b.dataset.pay; body(el); });
+    el.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => { sync(); d.pay = d.pay === b.dataset.pay ? '' : b.dataset.pay;
+      if (d.pay === '現金' || d.pay === '信用卡') { const g = guessAcc(d.pay); if (g && S.accounts[g]?.type === (d.pay === '現金' ? 'cash' : 'card')) d.account = g; }
+      body(el); });
     const rateBox = el.querySelector('#rateBox');
     const showRate = () => {
       if (d.currency === 'TWD') { rateBox.innerHTML = ''; return; }
@@ -458,12 +521,14 @@ function openTx(id, preset = {}){
       const amount = num(d.amount);
       if (amount <= 0) return toast('請輸入金額');
       if (!d.category) return toast('請選擇分類');
+      if (isTr && (!d.account || !d.toAccount || d.account === d.toAccount)) return toast('請選擇轉出和轉入帳戶');
       if (!d.date) return toast('請選擇日期');
       if (d.currency !== 'TWD' && num(d.rate) <= 0) return toast('請輸入匯率');
       const data = { type:d.type, amount, currency:d.currency, rate:d.currency === 'TWD' ? 1 : num(d.rate),
         twd: Math.round(amount * (d.currency === 'TWD' ? 1 : num(d.rate)) * 100) / 100,
-        category:d.category, pay:d.pay || '', date:d.date, note:d.note.trim(), createdAt: old?.createdAt || Date.now() };
+        category:d.category, pay:isTr ? '' : (d.pay || ''), account:d.account || '', ...(isTr ? { toAccount:d.toAccount } : {}), date:d.date, note:d.note.trim(), createdAt: old?.createdAt || Date.now() };
       if (old?.recurId) data.recurId = old.recurId;
+      if (data.account && !isTr) S.lastAcc = data.account;
       if (old) Store.set('tx', id, data); else { const nid = Store.add('tx', data); preset.onSaved && preset.onSaved(nid); }
       closeSheet(); toast('已儲存');
     };
@@ -545,6 +610,23 @@ const acts = {
     simpleForm(sign > 0 ? `存入「${esc(g.name)}」` : `從「${esc(g.name)}」取出`, [{ name:'v', label:'金額 (NT$)', type:'number' }],
       v => { const a = num(v.v); if (a <= 0) { toast('請輸入金額'); return false; }
         moveGoal(id, sign * a, today()); toast('已記錄，總覽同步更新'); }); },
+  transfer: () => openTx(null, { type:'transfer' }),
+  defaultAcc: () => { const t = Date.now();
+    Store.add('accounts', { name:'手上現金', type:'cash', initial:0, createdAt:t });
+    Store.add('accounts', { name:'銀行存款', type:'bank', initial:0, createdAt:t + 1 });
+    toast('已建立，點帳戶填入目前餘額'); },
+  editAcc: b => { const id = b.dataset.id, a = id ? { id, ...S.accounts[id] } : { type:'cash' };
+    const cur = id ? accBal(a) : 0;
+    simpleForm(id ? '編輯帳戶' : '新增帳戶', [
+      { name:'name', label:'帳戶名稱', ph:'例如：手上現金、郵局、國泰', value:a.name },
+      { name:'type', label:'類型', options:Object.entries(ACC_TYPES), value:a.type },
+      { name:'bal', label:'目前餘額 (NT$)　信用卡請填「目前未繳金額」', type:'number', value:a.type === 'card' ? Math.round(-cur * 100) / 100 : Math.round(cur * 100) / 100 }],
+      v => { if (!v.name) { toast('請填帳戶名稱'); return false; }
+        const bal = v.type === 'card' ? -num(v.bal) : num(v.bal);
+        if (id) Store.set('accounts', id, { name:v.name, type:v.type, initial:bal - accDelta(id) }, true);
+        else Store.add('accounts', { name:v.name, type:v.type, initial:bal, createdAt:Date.now() });
+        toast('已更新餘額'); },
+      id ? () => Store.del('accounts', id) : null); },
   goTab: b => { S.tab = b.dataset.tab; render(); scrollTo(0,0); },
   sweep: () => { const m = S.month, txs = monthTx(m), avail = Math.round(sum(txs,'income') - sum(txs,'expense') - sum(txs,'saving'));
     const gs = Object.entries(S.goals).sort((a,b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
@@ -561,10 +643,11 @@ const acts = {
       { name:'amount', label:'金額 (NT$)', type:'number', value:r.amount },
       { name:'category', label:'分類 / 收入種類', options:[...cfg().expenseCats, ...cfg().incomeCats], value:r.category },
       { name:'pay', label:'付款方式', options:[['','（不指定）'], ...cfg().payMethods], value:r.pay },
+      { name:'account', label:'帳戶', options:[['','（不指定）'], ...accList().map(a => [a.id, a.name])], value:r.account || '' },
       { name:'day', label:'每月幾號', type:'number', value:r.day },
       { name:'paused', label:'狀態', options:[['','啟用'],['1','暫停']], value:r.paused ? '1' : '' }],
       v => { if (!v.name || num(v.amount) <= 0) { toast('請填名稱與金額'); return false; }
-        const data = { type:v.type, name:v.name, amount:num(v.amount), category:v.category, pay:v.pay,
+        const data = { type:v.type, name:v.name, amount:num(v.amount), category:v.category, pay:v.pay, account:v.account,
           day:Math.min(31, Math.max(1, Math.round(num(v.day)) || 1)), paused:!!v.paused };
         if (id) Store.set('recur', id, data, true);
         else Store.add('recur', { ...data, startMonth:thisMonth(), applied:[] });
@@ -577,7 +660,7 @@ const acts = {
     if (arr.length <= 1) return toast('至少保留一項');
     if (!confirm(`刪除「${arr[b.dataset.i]}」？（既有紀錄不受影響）`)) return;
     arr.splice(+b.dataset.i, 1); Store.set('settings', 'main', { [k]:arr }, true); },
-  export: () => { const blob = new Blob([JSON.stringify({ tx:S.tx, plans:S.plans, wish:S.wish, recur:S.recur, goals:S.goals, settings:S.settings }, null, 2)], { type:'application/json' });
+  export: () => { const blob = new Blob([JSON.stringify({ tx:S.tx, plans:S.plans, wish:S.wish, recur:S.recur, goals:S.goals, settings:S.settings, accounts:S.accounts }, null, 2)], { type:'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `記帳備份-${today()}.json`; a.click(); },
   logout: () => window.__logout && window.__logout()
 };
