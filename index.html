@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#eef0ee">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>我的記帳本</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#eef0ee;--glass:rgba(255,255,255,.62);--glass-b:rgba(255,255,255,.75);--card:#fff;--text:#16181a;--muted:#8a8f93;--line:rgba(22,24,26,.08);--pri:#16181a;--lime:#d6ef4b;--pri-soft:rgba(22,24,26,.06);--ok:#9bbf2e;--warn:#e8a23a;--bad:#d9534f;--inc:#6f8a1f;--exp:#b4584b;--shadow:0 8px 30px rgba(40,44,30,.08);--r:26px}
+@media (prefers-color-scheme:dark){:root{--bg:#121413;--glass:rgba(34,37,35,.7);--glass-b:rgba(255,255,255,.06);--card:#1d201e;--text:#eef0ee;--muted:#8f958f;--line:rgba(255,255,255,.08);--pri:#eef0ee;--pri-soft:rgba(255,255,255,.07);--inc:#b9d65a;--exp:#e48d7f;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;color:var(--text);font-family:"Inter",-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;font-size:15px;letter-spacing:.01em}
+body{background:var(--bg);background-image:radial-gradient(60vmax 50vmax at 85% 8%,rgba(214,239,75,.22),transparent 60%),radial-gradient(50vmax 45vmax at 5% 40%,rgba(196,140,110,.18),transparent 60%),radial-gradient(60vmax 50vmax at 70% 100%,rgba(140,160,70,.16),transparent 60%);background-attachment:fixed;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{max-width:560px;margin:0 auto;min-height:100vh;padding:0 16px calc(110px + env(safe-area-inset-bottom))}
+header.top{position:sticky;top:0;z-index:5;padding:calc(12px + env(safe-area-inset-top)) 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+header h1{font-size:16px;font-weight:600;margin:0;flex:1;text-align:center}
+.icon-btn{background:var(--glass);border:1px solid var(--glass-b);font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer;color:var(--text);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.icon-btn:active{transform:scale(.94)}
+.row .icon-btn{width:30px;height:30px;font-size:13px;background:transparent;border-color:var(--line)}
+.card{background:var(--glass);border:1px solid var(--glass-b);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:var(--r);padding:18px;margin:0 0 14px;box-shadow:var(--shadow)}
+.card h2{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+.card h2 small{font-weight:400;color:var(--muted);font-size:12px;background:var(--pri-soft);padding:3px 10px;border-radius:99px}
+.hero{padding:6px 4px 18px}
+.hero .hello{font-size:26px;font-weight:500;line-height:1.2}
+.hero .hello span{display:block;color:var(--muted);font-weight:400}
+.hero .bigrow{display:flex;align-items:flex-start;gap:10px;margin-top:18px}
+.hero .big{font-size:56px;font-weight:300;letter-spacing:-.03em;line-height:1}
+.hero .big small{font-size:18px;font-weight:400;color:var(--muted);margin-right:4px;letter-spacing:0}
+.hero .meta{font-size:12px;white-space:nowrap;color:var(--muted);line-height:1.5;padding-top:4px}
+.hero .meta b{display:inline-block;font-weight:500;color:var(--text);background:var(--lime);color:#16181a;border-radius:99px;padding:1px 8px;margin-bottom:2px}
+.hero .meta b.t-warn{background:#f6d38f}.hero .meta b.t-over{background:#f2b3ae}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.gcard{border-radius:var(--r);padding:16px;color:#fff;min-height:150px;display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.gcard.g-olive{background:radial-gradient(120% 90% at 100% 100%,#d6ef4b 0%,rgba(214,239,75,0) 55%),linear-gradient(150deg,#3e4a18,#7d9228)}
+.gcard.g-rose{background:radial-gradient(120% 90% at 100% 100%,#e9c2a8 0%,rgba(233,194,168,0) 55%),linear-gradient(150deg,#6e3a33,#b47a66)}
+.gcard .gtop{display:flex;justify-content:space-between;align-items:center}
+.gcard .gicon{width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:15px}
+.gcard .garrow{width:34px;height:34px;border-radius:50%;background:#16181a;color:#fff;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+.gcard .k{margin-top:auto;font-size:12px;opacity:.8}
+.gcard .v{font-size:24px;font-weight:300;letter-spacing:-.02em;margin-top:2px;word-break:break-all}
+.gcard .v small{font-size:13px;opacity:.8;margin-right:2px}
+.gcard .dots{position:absolute;right:16px;top:60px;width:60px;height:24px;background-image:radial-gradient(rgba(255,255,255,.45) 1.2px,transparent 1.4px);background-size:7px 7px;opacity:.6}
+.inc{color:var(--inc)}.exp{color:var(--exp)}.sav{color:var(--muted)}
+.bar{height:6px;background:var(--pri-soft);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .3s}
+.bar.warn>i{background:var(--warn)}.bar.over>i{background:var(--bad)}
+.t-warn{color:var(--warn)}.t-over{color:var(--bad)}
+.row{display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row .main{flex:1;min-width:0}
+.row .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .sub{font-size:12px;color:var(--muted);margin-top:3px}
+.row .amt{font-weight:500;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.row.tap{cursor:pointer}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;background:var(--pri-soft);color:var(--text);margin-right:6px}
+.btn{border:0;border-radius:99px;padding:9px 16px;background:var(--pri);color:var(--bg);cursor:pointer;font-size:14px}
+.btn.ghost{background:var(--glass);border:1px solid var(--line);color:var(--text)}
+.btn.small{padding:6px 14px;font-size:13px}
+.btn.danger{background:var(--bad);color:#fff}
+.btn.block{width:100%;padding:14px;font-size:16px}
+.linkbtn{background:none;border:0;color:var(--text);cursor:pointer;padding:8px 0;font-size:13px;font-weight:500;opacity:.75}
+.empty{color:var(--muted);font-size:13px;padding:6px 0}
+.done .title{text-decoration:line-through;color:var(--muted)}
+nav.tabs{position:fixed;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;display:flex;justify-content:center;pointer-events:none;padding:0 16px}
+nav.tabs .in{display:flex;gap:2px;width:100%;max-width:440px;padding:6px;border-radius:99px;background:var(--glass);border:1px solid var(--glass-b);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 10px 30px rgba(0,0,0,.12);pointer-events:auto}
+nav.tabs button{flex:1;background:none;border:0;padding:8px 0;border-radius:99px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+nav.tabs button b{font-size:17px;font-weight:normal;line-height:1.1}
+nav.tabs button.on{background:var(--pri);color:var(--bg)}
+#fab{position:fixed;z-index:7;right:max(20px,calc(50vw - 260px));bottom:calc(92px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;border:0;background:var(--lime);color:#16181a;font-size:28px;box-shadow:0 8px 24px rgba(120,150,20,.35);cursor:pointer}
+.sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet.hidden{display:none}
+.sheet .bg{position:absolute;inset:0;background:rgba(20,22,18,.35);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.sheet .body{position:relative;background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:28px 28px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+.sheet h3{margin:0 0 14px;font-size:18px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+label.f{display:block;font-size:12px;color:var(--muted);margin:12px 0 6px}
+.in-f{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:14px;background:var(--pri-soft);font-size:16px;outline:none}
+.in-f:focus{border-color:var(--text)}
+.amount-in{font-size:34px;font-weight:300;text-align:right;padding:8px 14px;letter-spacing:-.02em}
+.seg{display:flex;background:var(--pri-soft);border-radius:99px;padding:4px}
+.seg button{flex:1;border:0;background:none;padding:9px;border-radius:99px;cursor:pointer;color:var(--muted)}
+.seg button.on{background:var(--pri);color:var(--bg);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--glass);border-radius:99px;padding:7px 14px;cursor:pointer;font-size:14px}
+.chip.on{background:var(--pri);border-color:var(--pri);color:var(--bg)}
+.chip .x{margin-left:6px;opacity:.5}
+.flex{display:flex;gap:8px;align-items:center}
+.flex>*{min-width:0}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.banner{background:var(--glass);border:1px dashed var(--line);color:var(--muted);font-size:12px;padding:8px 14px;border-radius:16px;margin-bottom:12px}
+#toast{position:fixed;left:50%;bottom:170px;transform:translateX(-50%);background:#16181a;color:#fff;padding:9px 16px;border-radius:99px;font-size:13px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+#toast.show{opacity:1}
+#login{position:fixed;inset:0;z-index:40;background:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center}
+#login.hidden{display:none}
+.chart-box{position:relative;height:240px}
+.legend .row{padding:8px 0}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="icon-btn" id="prevM" aria-label="上個月">‹</button>
+    <h1 id="title">記帳本</h1>
+    <button class="icon-btn" id="nextM" aria-label="下個月">›</button>
+  </header>
+  <div id="bannerBox"></div>
+  <main id="view"></main>
+</div>
+<button id="fab" aria-label="快速記帳">＋</button>
+<nav class="tabs"><div class="in">
+  <button data-tab="home" class="on"><b>◎</b>總覽</button>
+  <button data-tab="list"><b>☰</b>紀錄</button>
+  <button data-tab="chart"><b>▥</b>圖表</button>
+  <button data-tab="goals"><b>★</b>存錢</button>
+  <button data-tab="settings"><b>⚙</b>設定</button>
+</div></nav>
+<div id="sheet" class="sheet hidden"><div class="bg"></div><div class="body" id="sheetBody"></div></div>
+<div id="toast"></div>
+<div id="login" class="hidden">
+  <div style="font-size:48px">💰</div>
+  <h2 style="margin:0">我的記帳本</h2>
+  <p style="color:var(--muted);margin:0">登入後手機、電腦資料自動同步</p>
+  <button class="btn block" id="loginBtn" style="max-width:280px">使用 Google 帳號登入</button>
+  <p id="loginErr" class="hint"></p>
+</div>
+
+<script type="module">
+/* ========= 1. 在這裡貼上你的 Firebase 設定（教學見「設定教學.md」） =========
+   留空時會以「本機試用模式」執行：資料只存在這台裝置的瀏覽器，不會同步。 */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA5Xg1p584v-PBO2gWPcKFLS98PqNYlg3w",
+  authDomain: "budget-app-74e09.firebaseapp.com",
+  projectId: "budget-app-74e09",
+  storageBucket: "budget-app-74e09.firebasestorage.app",
+  messagingSenderId: "213318381367",
+  appId: "1:213318381367:web:c35f5e247d7b4dc56534b2"
+};
+/* ======================================================================== */
+
+const FB_VER = '10.12.2';
+const DEFAULTS = {
+  expenseCats: ['餐飲','交通','購物','居住','娛樂','醫療','教育','訂閱','其他'],
+  incomeCats: ['薪水','獎金','兼職','投資','其他收入'],
+  payMethods: ['現金','信用卡','行動支付']
+};
+const CURRENCIES = ['TWD','USD','JPY','EUR','KRW','CNY','HKD','GBP','AUD','SGD','THB','VND','MYR','CAD'];
+const COLORS = ['#16181a','#c5e03a','#b47a66','#7d9228','#e9c2a8','#5b6b2a','#8a8f93','#d9a441','#6e3a33','#a9b98a','#cfd3d0','#4a4f52'];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const num = v => { const n = parseFloat(String(v).replace(/,/g,'')); return isFinite(n) ? n : 0; };
+const money = n => (n < 0 ? '-' : '') + 'NT$ ' + Math.round(Math.abs(n)).toLocaleString('zh-TW');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const thisMonth = () => today().slice(0,7);
+const addMonth = (m,k) => { let [y,mo] = m.split('-').map(Number); mo += k; while(mo>12){mo-=12;y++} while(mo<1){mo+=12;y--} return `${y}-${pad(mo)}`; };
+const mLabel = m => `${m.slice(0,4)} 年 ${+m.slice(5)} 月`;
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(()=>t.classList.remove('show'), 2200); }
+
+/* ---------- 狀態 ---------- */
+const S = { tx:{}, plans:{}, wish:{}, recur:{}, goals:{}, settings:{}, fresh:{}, month: thisMonth(), tab:'home',
+  filter:{ q:'', type:'', cat:'', from:'', to:'' } };
+let Store = null;
+const cfg = () => ({ ...DEFAULTS, ...(S.settings.main || {}) });
+const txList = () => Object.entries(S.tx).map(([id,t]) => ({ id, ...t }));
+const monthTx = m => txList().filter(t => (t.date||'').startsWith(m));
+const sum = (arr, type) => arr.filter(t => t.type === type).reduce((a,t) => a + num(t.twd), 0);
+
+/* ---------- 資料層：本機 / Firebase ---------- */
+function localStore(){
+  const mem = {};
+  const get = c => { try { return JSON.parse(localStorage.getItem('ledger:'+c)) || mem[c] || {}; } catch { return mem[c] || {}; } };
+  const put = (c,o) => { mem[c] = o; try { localStorage.setItem('ledger:'+c, JSON.stringify(o)); } catch {} };
+  const subs = {};
+  const emit = c => (subs[c]||[]).forEach(cb => cb(get(c), false));
+  return {
+    mode:'local',
+    sub(c,cb){ (subs[c] = subs[c] || []).push(cb); cb(get(c), false); },
+    set(c,id,data,merge){ const o = get(c); o[id] = merge ? { ...(o[id]||{}), ...data } : data; put(c,o); emit(c); },
+    add(c,data){ const id = newId(); this.set(c,id,data); return id; },
+    del(c,id){ const o = get(c); delete o[id]; put(c,o); emit(c); }
+  };
+}
+function firebaseStore(user, F, fdb){
+  const col = c => F.collection(fdb, 'users', user.uid, c);
+  const fail = e => toast('同步失敗：' + (e.code || e.message));
+  return {
+    mode:'firebase', user,
+    sub(c,cb){ F.onSnapshot(col(c), snap => { const o = {}; snap.forEach(d => o[d.id] = d.data()); cb(o, snap.metadata.fromCache); }, fail); },
+    set(c,id,data,merge){ F.setDoc(F.doc(col(c), id), data, { merge: !!merge }).catch(fail); },
+    add(c,data){ const r = F.doc(col(c)); F.setDoc(r, data).catch(fail); return r.id; },
+    del(c,id){ F.deleteDoc(F.doc(col(c), id)).catch(fail); }
+  };
+}
+
+function start(store){
+  Store = store;
+  ['tx','plans','wish','recur','goals','settings'].forEach(c => store.sub(c, (o, fromCache) => {
+    S[c] = o; if (!fromCache) S.fresh[c] = true;
+    applyRecurring(); render();
+  }));
+}
+
+/* ---------- 固定收支：每月自動帶入 ---------- */
+const tried = new Set();
+function applyRecurring(){
+  if (!S.fresh.recur) return;
+  const m = thisMonth();
+  for (const [id, r] of Object.entries(S.recur)) {
+    if (r.paused || (r.startMonth || m) > m || (r.applied || []).includes(m)) continue;
+    if (tried.has(id + m)) continue; tried.add(id + m);
+    const dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
+    Store.set('tx', `r_${id}_${m}`, { type:r.type, amount:num(r.amount), currency:'TWD', rate:1, twd:num(r.amount),
+      category:r.category, pay:r.pay || '', date:`${m}-${pad(Math.min(r.day || 1, dim))}`, note:r.name, recurId:id, createdAt:Date.now() });
+    Store.set('recur', id, { applied:[...(r.applied || []), m] }, true);
+  }
+}
+
+/* ---------- 匯率（open.er-api.com，免金鑰） ---------- */
+let rateData = null;
+async function getRate(cur){
+  if (cur === 'TWD') return { rate:1 };
+  if (!rateData) {
+    const r = await fetch('https://open.er-api.com/v6/latest/TWD');
+    const j = await r.json();
+    if (j.result !== 'success') throw new Error('rate');
+    rateData = j;
+  }
+  const v = rateData.rates[cur];
+  if (!v) throw new Error('rate');
+  return { rate: 1 / v, updated: rateData.time_last_update_utc };
+}
+
+/* ---------- 畫面 ---------- */
+let charts = [];
+function render(){
+  if (!Store) return;
+  const t = S.tab, monthTabs = ['home','chart'].includes(t);
+  $('#title').textContent = monthTabs ? mLabel(S.month) : ({list:'紀錄搜尋', goals:'存錢目標', settings:'設定'})[t];
+  $('#prevM').style.visibility = $('#nextM').style.visibility = monthTabs ? 'visible' : 'hidden';
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $('#bannerBox').innerHTML = Store.mode === 'local'
+    ? '<div class="banner">本機試用模式：資料只存在這台裝置。填入 Firebase 設定後即可登入同步。</div>' : '';
+  charts.forEach(c => c.destroy()); charts = [];
+  $('#view').innerHTML = ({ home:viewHome, list:viewList, chart:viewChart, goals:viewGoals, settings:viewSettings })[t]();
+  if (t === 'chart') drawCharts();
+}
+
+function txRow(t){
+  if (t.type === 'saving') return `<div class="row tap" data-act="editTx" data-id="${esc(t.id)}">
+    <div class="main"><div class="title"><span class="tag">存錢</span>${esc(t.note || '')}</div><div class="sub">${esc(t.date)}</div></div>
+    <div class="amt sav">${num(t.twd) >= 0 ? '存 ' : '取 '}${money(Math.abs(num(t.twd))).replace('NT$ ','')}</div></div>`;
+  const isExp = t.type === 'expense';
+  const orig = t.currency && t.currency !== 'TWD' ? `<div class="sub">${esc(t.currency)} ${num(t.amount).toLocaleString('zh-TW')}</div>` : '';
+  return `<div class="row tap" data-act="editTx" data-id="${esc(t.id)}">
+    <div class="main"><div class="title"><span class="tag">${esc(t.category)}</span>${esc(t.note || '')}</div>
+    <div class="sub">${esc(t.date)}${t.pay ? ' · ' + esc(t.pay) : ''}${t.recurId ? ' · 固定' : ''}</div></div>
+    <div class="amt ${isExp ? 'exp' : 'inc'}">${isExp ? '-' : '+'}${money(t.twd).replace('NT$ ','')}${orig}</div></div>`;
+}
+const level = (spent, budget) => budget <= 0 ? (spent > 0 ? 'over' : '') : spent / budget >= 1 ? 'over' : spent / budget >= 0.8 ? 'warn' : '';
+
+function viewHome(){
+  const m = S.month, txs = monthTx(m);
+  const inc = sum(txs,'income'), exp = sum(txs,'expense'), saved = sum(txs,'saving'), avail = inc - exp - saved;
+  const goals = Object.entries(S.goals).map(([id,g]) => ({ id, ...g })).sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const plan = (S.plans[m] && S.plans[m].items) || [];
+  const budget = plan.reduce((a,p) => a + num(p.amount), 0);
+  const left = budget - exp, lv = level(exp, budget);
+  const byCat = {}; txs.filter(t => t.type === 'expense').forEach(t => byCat[t.category] = (byCat[t.category] || 0) + num(t.twd));
+  const budCat = {}; plan.forEach(p => budCat[p.category] = (budCat[p.category] || 0) + num(p.amount));
+  const wishes = Object.entries(S.wish).map(([id,w]) => ({ id, ...w })).filter(w => w.month === m).sort((a,b) => (a.done?1:0) - (b.done?1:0));
+
+  const hr = new Date().getHours(), greet = hr < 11 ? '早安！' : hr < 18 ? '午安！' : '晚安！';
+  return `
+  <div class="hero">
+    <div class="hello">${greet}<span>來看看這個月的狀況</span></div>
+    <div class="bigrow"><div class="big"><small>NT$</small>${Math.round(avail).toLocaleString('zh-TW')}</div>
+      <div class="meta"><b class="${lv ? 't-' + lv : ''}">${budget ? (lv === 'over' ? '已超支' : '預算剩餘') : '本月結餘'}</b><br>${budget ? money(left) + '<br>預算 ' + money(budget) : '尚未設定預算'}</div></div>
+    <div class="hint" style="margin-top:8px">可用餘額 ＝ 收入 − 支出 − 本月存下 ${money(saved)}</div>
+    ${budget ? `<div class="bar ${lv}"><i style="width:${Math.min(100, exp / budget * 100)}%"></i></div><div class="hint">預算已用 ${Math.round(exp / budget * 100)}%</div>` : ''}
+  </div>
+  <div class="grid2">
+    <div class="gcard g-olive"><div class="gtop"><span class="gicon">＋</span><button class="garrow" data-act="goList" data-type="income" aria-label="看收入紀錄">↗</button></div><span class="dots"></span>
+      <div class="k">本月收入</div><div class="v"><small>$</small>${Math.round(inc).toLocaleString('zh-TW')}</div></div>
+    <div class="gcard g-rose"><div class="gtop"><span class="gicon">－</span><button class="garrow" data-act="goList" data-type="expense" aria-label="看支出紀錄">↗</button></div><span class="dots"></span>
+      <div class="k">本月支出</div><div class="v"><small>$</small>${Math.round(exp).toLocaleString('zh-TW')}</div></div>
+  </div>
+
+  <div class="card"><h2>存錢目標 <small>本月存下 ${money(saved)}</small></h2>
+    ${goals.length ? goals.map(g => { const p = g.target ? Math.min(100, num(g.saved) / num(g.target) * 100) : 0;
+      return `<div class="tap" data-act="goTab" data-tab="goals" style="margin:4px 0 12px;cursor:pointer"><div class="flex" style="justify-content:space-between;font-size:14px">
+        <span>${esc(g.name)}</span><span class="hint" style="margin:0">${money(g.saved || 0).replace('NT$ ','')} / ${money(g.target).replace('NT$ ','')}　${Math.round(p)}%</span></div>
+        <div class="bar"><i style="width:${p}%"></i></div></div>`; }).join('') : '<div class="empty">還沒有存錢目標</div>'}
+    <div class="flex" style="justify-content:space-between">
+      <button class="linkbtn" data-act="goTab" data-tab="goals">${goals.length ? '查看全部 →' : '＋ 新增存錢目標'}</button>
+      ${goals.length && avail > 0 ? `<button class="btn small" data-act="sweep">結餘存入 ${money(avail)}</button>` : ''}</div>
+  </div>
+
+  <div class="card"><h2>預計開支 <small>依分類的預算</small></h2>
+    ${Object.keys(budCat).length ? Object.entries(budCat).map(([c,b]) => { const s = byCat[c] || 0, l = level(s,b);
+      return `<div style="margin:4px 0 12px"><div class="flex" style="justify-content:space-between;font-size:14px">
+        <span>${esc(c)}</span><span class="${l ? 't-' + l : ''}">${money(s).replace('NT$ ','')} / ${money(b).replace('NT$ ','')}${l === 'over' ? ' 超支' : l === 'warn' ? ' 快用完' : ''}</span></div>
+        <div class="bar ${l}"><i style="width:${Math.min(100, s / b * 100)}%"></i></div></div>`; }).join('') : '<div class="empty">尚未設定本月預算</div>'}
+    ${plan.map(p => `<div class="row"><div class="main"><div class="title"><span class="tag">${esc(p.category)}</span>${esc(p.name)}</div></div>
+      <div class="amt">${money(p.amount).replace('NT$ ','')}</div><button class="icon-btn" style="font-size:16px" data-act="delPlan" data-id="${esc(p.id)}">✕</button></div>`).join('')}
+    <div class="flex" style="justify-content:space-between"><button class="linkbtn" data-act="addPlan">＋ 新增預計開支</button>
+    ${!plan.length && (S.plans[addMonth(m,-1)]?.items || []).length ? '<button class="linkbtn" data-act="copyPlan">複製上月預算</button>' : ''}</div>
+  </div>
+
+  <div class="card"><h2>想買清單 <small>${wishes.filter(w => !w.done).length} 項待買</small></h2>
+    ${wishes.length ? wishes.map(w => `<div class="row ${w.done ? 'done' : ''}"><div class="main"><div class="title">${esc(w.name)}</div>
+      <div class="sub">${esc(w.category || '')}${w.price ? ' · 約 ' + money(w.price) : ''}</div></div>
+      ${w.done ? '<span class="hint">已買</span>' : `<button class="btn small" data-act="buyWish" data-id="${esc(w.id)}">買了</button>`}
+      <button class="icon-btn" style="font-size:16px" data-act="delWish" data-id="${esc(w.id)}">✕</button></div>`).join('') : '<div class="empty">還沒有想買的東西</div>'}
+    <button class="linkbtn" data-act="addWish">＋ 新增想買的東西</button>
+  </div>
+
+  <div class="card"><h2>本月紀錄 <small>${txs.length} 筆</small></h2>
+    ${txs.length ? txs.sort((a,b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(txRow).join('') : '<div class="empty">按右下角 ＋ 開始記帳</div>'}
+  </div>`;
+}
+
+function viewList(){
+  const f = S.filter, c = cfg(), cats = [...new Set([...c.expenseCats, ...c.incomeCats])];
+  const q = f.q.trim().toLowerCase();
+  const res = txList().filter(t =>
+    (!f.type || t.type === f.type) && (!f.cat || t.category === f.cat) &&
+    (!f.from || t.date >= f.from) && (!f.to || t.date <= f.to) &&
+    (!q || [t.note, t.category, t.pay, t.currency].join(' ').toLowerCase().includes(q))
+  ).sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+  return `<div class="card">
+    <input class="in-f" id="fq" placeholder="搜尋關鍵字（備註、分類、付款方式）" value="${esc(f.q)}">
+    <div class="flex" style="margin-top:8px">
+      <select class="in-f" id="ftype"><option value="">全部</option><option value="expense" ${f.type==='expense'?'selected':''}>支出</option><option value="income" ${f.type==='income'?'selected':''}>收入</option><option value="saving" ${f.type==='saving'?'selected':''}>存錢</option></select>
+      <select class="in-f" id="fcat"><option value="">所有分類</option>${cats.map(x => `<option ${f.cat===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
+    </div>
+    <div class="flex" style="margin-top:8px"><input type="date" class="in-f" id="ffrom" value="${esc(f.from)}"><span>～</span><input type="date" class="in-f" id="fto" value="${esc(f.to)}"></div>
+    <div class="flex" style="justify-content:space-between;margin-top:6px"><span class="hint">${res.length} 筆　支出 ${money(sum(res,'expense'))}　收入 ${money(sum(res,'income'))}　存錢 ${money(sum(res,'saving'))}</span>
+    <button class="linkbtn" data-act="clearFilter">清除</button></div>
+  </div>
+  <div class="card">${res.length ? res.map(txRow).join('') : '<div class="empty">沒有符合的紀錄</div>'}</div>`;
+}
+
+function viewChart(){
+  return `<div class="card"><h2>支出分類 <small>${mLabel(S.month)}</small></h2>
+    <div class="chart-box" id="pieWrap"><canvas id="pie"></canvas></div><div class="legend" id="legend"></div></div>
+  <div class="card"><h2>每月收支趨勢 <small>近 6 個月</small></h2><div class="chart-box"><canvas id="trend"></canvas></div></div>`;
+}
+function drawCharts(){
+  if (!window.Chart) { $('#view').insertAdjacentHTML('afterbegin','<div class="banner">圖表元件載入失敗，請確認網路。</div>'); return; }
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches, tc = dark ? '#9ca3af' : '#6b7280';
+  const byCat = {}; monthTx(S.month).filter(t => t.type === 'expense').forEach(t => byCat[t.category] = (byCat[t.category] || 0) + num(t.twd));
+  const ent = Object.entries(byCat).sort((a,b) => b[1] - a[1]), total = ent.reduce((a,e) => a + e[1], 0);
+  if (ent.length) {
+    charts.push(new Chart($('#pie'), { type:'doughnut', data:{ labels:ent.map(e => e[0]), datasets:[{ data:ent.map(e => Math.round(e[1])), backgroundColor:ent.map((_,i) => COLORS[i % COLORS.length]), borderWidth:0 }] },
+      options:{ maintainAspectRatio:false, cutout:'72%', borderRadius:6, spacing:2, plugins:{ legend:{ display:false } } } }));
+    $('#legend').innerHTML = ent.map(([c,v],i) => `<div class="row"><span class="dot" style="background:${COLORS[i % COLORS.length]}"></span><div class="main">${esc(c)}</div><span class="hint">${Math.round(v / total * 100)}%</span><div class="amt">${money(v)}</div></div>`).join('');
+  } else { $('#pieWrap').innerHTML = '<div class="empty">本月尚無支出</div>'; $('#pieWrap').style.height = 'auto'; }
+  const ms = [...Array(6)].map((_,i) => addMonth(S.month, i - 5));
+  charts.push(new Chart($('#trend'), { type:'bar',
+    data:{ labels:ms.map(m => +m.slice(5) + '月'), datasets:[
+      { label:'支出', data:ms.map(m => Math.round(sum(monthTx(m),'expense'))), backgroundColor:dark ? '#e48d7f' : '#b47a66', borderRadius:99, barPercentage:.6 },
+      { label:'收入', data:ms.map(m => Math.round(sum(monthTx(m),'income'))), backgroundColor:dark ? '#d6ef4b' : '#c5e03a', borderRadius:99, barPercentage:.6 }] },
+    options:{ maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:tc } } },
+      scales:{ x:{ ticks:{ color:tc }, grid:{ display:false } }, y:{ ticks:{ color:tc }, grid:{ color:dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)' }, border:{ display:false } } } } }));
+}
+
+function viewGoals(){
+  const gs = Object.entries(S.goals).map(([id,g]) => ({ id, ...g })).sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0));
+  return (gs.length ? gs.map(g => { const p = g.target ? Math.min(100, num(g.saved) / num(g.target) * 100) : 0;
+    return `<div class="card"><h2>${esc(g.name)} <button class="linkbtn" data-act="editGoal" data-id="${esc(g.id)}">編輯</button></h2>
+      <div class="flex" style="justify-content:space-between"><b>${money(g.saved || 0)}</b><span class="hint">目標 ${money(g.target)}${g.deadline ? '　期限 ' + esc(g.deadline) : ''}</span></div>
+      <div class="bar"><i style="width:${p}%"></i></div>
+      <div class="flex" style="justify-content:space-between;margin-top:10px"><span class="hint">${Math.round(p)}%${p >= 100 ? ' 🎉 達成！' : '　還差 ' + money(num(g.target) - num(g.saved))}</span>
+      <span class="flex"><button class="btn small ghost" data-act="goalMove" data-id="${esc(g.id)}" data-sign="-1">取出</button><button class="btn small" data-act="goalMove" data-id="${esc(g.id)}" data-sign="1">存入</button></span></div></div>`; }).join('')
+    : '<div class="card empty">還沒有存錢目標</div>') + '<button class="btn block" data-act="editGoal">＋ 新增存錢目標</button>';
+}
+
+function viewSettings(){
+  const c = cfg();
+  const chipEdit = (key, title) => `<div class="card"><h2>${title}</h2><div class="chips">
+    ${c[key].map((x,i) => `<span class="chip">${esc(x)}<span class="x" data-act="delOpt" data-key="${key}" data-i="${i}">✕</span></span>`).join('')}</div>
+    <div class="flex" style="margin-top:10px"><input class="in-f" id="new_${key}" placeholder="新增…"><button class="btn" data-act="addOpt" data-key="${key}">新增</button></div></div>`;
+  const rs = Object.entries(S.recur).map(([id,r]) => ({ id, ...r }));
+  return `<div class="card"><h2>帳號</h2>
+      <div class="hint">${Store.mode === 'firebase' ? '已登入：' + esc(Store.user.email || Store.user.displayName || '') + '（資料雲端同步）' : '本機試用模式（未同步）'}</div>
+      <div class="flex" style="margin-top:10px">${Store.mode === 'firebase' ? '<button class="btn ghost" data-act="logout">登出</button>' : ''}
+      <button class="btn ghost" data-act="export">匯出備份 (JSON)</button></div></div>
+    <div class="card"><h2>固定收支 <small>每月自動帶入</small></h2>
+      ${rs.length ? rs.map(r => `<div class="row tap" data-act="editRecur" data-id="${esc(r.id)}"><div class="main"><div class="title"><span class="tag">${esc(r.category)}</span>${esc(r.name)}</div>
+        <div class="sub">每月 ${r.day} 號${r.pay ? ' · ' + esc(r.pay) : ''}${r.paused ? ' · 已暫停' : ''}</div></div>
+        <div class="amt ${r.type === 'expense' ? 'exp' : 'inc'}">${r.type === 'expense' ? '-' : '+'}${money(r.amount).replace('NT$ ','')}</div></div>`).join('') : '<div class="empty">例如房租、訂閱、薪水</div>'}
+      <button class="linkbtn" data-act="editRecur">＋ 新增固定收支</button></div>
+    ${chipEdit('expenseCats','支出分類')}${chipEdit('incomeCats','收入種類')}${chipEdit('payMethods','付款方式')}`;
+}
+
+/* ---------- 底部表單 ---------- */
+function openSheet(html, bind){ $('#sheetBody').innerHTML = html; $('#sheet').classList.remove('hidden'); bind && bind($('#sheetBody')); }
+function closeSheet(){ $('#sheet').classList.add('hidden'); $('#sheetBody').innerHTML = ''; }
+$('#sheet .bg').onclick = closeSheet;
+
+function catOrder(type){
+  const list = type === 'expense' ? cfg().expenseCats : cfg().incomeCats, cnt = {};
+  txList().filter(t => t.type === type).forEach(t => cnt[t.category] = (cnt[t.category] || 0) + 1);
+  return [...list].sort((a,b) => (cnt[b] || 0) - (cnt[a] || 0));
+}
+
+function openTx(id, preset = {}){
+  const old = id ? S.tx[id] : null;
+  const d = { type:'expense', amount:'', currency:'TWD', rate:1, category:'', pay:'', note:'',
+    date: S.month === thisMonth() ? today() : S.month + '-01', ...preset, ...(old || {}) };
+  if (!d.category) d.category = catOrder(d.type)[0] || '';
+  const body = el => {
+    const chipsHtml = (arr, cur, act) => arr.map(x => `<button type="button" class="chip ${x === cur ? 'on' : ''}" data-${act}="${esc(x)}">${esc(x)}</button>`).join('');
+    el.innerHTML = `<h3>${old ? '編輯紀錄' : '記一筆'} <button class="icon-btn" data-close>✕</button></h3>
+      <div class="seg"><button type="button" data-type="expense" class="${d.type === 'expense' ? 'on' : ''}">支出</button><button type="button" data-type="income" class="${d.type === 'income' ? 'on' : ''}">收入</button></div>
+      <div class="flex" style="margin-top:12px"><select class="in-f" id="cur" style="width:92px;flex:none">${CURRENCIES.map(x => `<option ${x === d.currency ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <input class="in-f amount-in" id="amt" inputmode="decimal" placeholder="0" value="${esc(d.amount)}"></div>
+      <div id="rateBox" class="hint"></div>
+      <label class="f">${d.type === 'expense' ? '分類' : '收入種類'}</label><div class="chips">${chipsHtml(catOrder(d.type), d.category, 'cat')}</div>
+      <label class="f">付款方式</label><div class="chips">${chipsHtml(cfg().payMethods, d.pay, 'pay')}</div>
+      <div class="flex"><div style="flex:1"><label class="f">日期</label><input type="date" class="in-f" id="date" value="${esc(d.date)}"></div></div>
+      <label class="f">備註</label><input class="in-f" id="note" placeholder="例如：午餐、捷運" value="${esc(d.note)}">
+      <button class="btn block" id="save" style="margin-top:16px">儲存</button>
+      ${old ? '<button class="btn block danger" id="del" style="margin-top:8px">刪除</button>' : ''}`;
+    const sync = () => { d.amount = el.querySelector('#amt').value; d.date = el.querySelector('#date').value; d.note = el.querySelector('#note').value; };
+    el.querySelector('[data-close]').onclick = closeSheet;
+    el.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { sync(); d.type = b.dataset.type; d.category = catOrder(d.type)[0] || ''; body(el); });
+    el.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { sync(); d.category = b.dataset.cat; body(el); });
+    el.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => { sync(); d.pay = d.pay === b.dataset.pay ? '' : b.dataset.pay; body(el); });
+    const rateBox = el.querySelector('#rateBox');
+    const showRate = () => {
+      if (d.currency === 'TWD') { rateBox.innerHTML = ''; return; }
+      const a = num(el.querySelector('#amt').value);
+      rateBox.innerHTML = `1 ${d.currency} = <input id="rate" inputmode="decimal" class="in-f" style="width:110px;display:inline-block;padding:4px 8px;font-size:14px" value="${+num(d.rate).toFixed(4)}"> TWD　≈ <b>${money(a * num(d.rate))}</b>${d.rateNote ? '<br>' + d.rateNote : ''}`;
+      rateBox.querySelector('#rate').oninput = e => { d.rate = num(e.target.value); d.rateNote = '（手動輸入匯率）'; rateBox.querySelector('b').textContent = money(num(el.querySelector('#amt').value) * d.rate); };
+    };
+    el.querySelector('#amt').oninput = () => { if (d.currency !== 'TWD') { const b = rateBox.querySelector('b'); if (b) b.textContent = money(num(el.querySelector('#amt').value) * num(d.rate)); } };
+    el.querySelector('#cur').onchange = async e => {
+      d.currency = e.target.value;
+      if (d.currency === 'TWD') { d.rate = 1; showRate(); return; }
+      rateBox.textContent = '取得即時匯率中…';
+      try { const r = await getRate(d.currency); d.rate = r.rate; d.rateNote = `匯率來源 open.er-api.com，更新於 ${new Date(r.updated).toLocaleString('zh-TW')}`; }
+      catch { d.rate = 0; d.rateNote = '⚠️ 無法取得即時匯率，請手動輸入'; }
+      showRate();
+    };
+    showRate();
+    el.querySelector('#save').onclick = () => {
+      sync();
+      const amount = num(d.amount);
+      if (amount <= 0) return toast('請輸入金額');
+      if (!d.category) return toast('請選擇分類');
+      if (!d.date) return toast('請選擇日期');
+      if (d.currency !== 'TWD' && num(d.rate) <= 0) return toast('請輸入匯率');
+      const data = { type:d.type, amount, currency:d.currency, rate:d.currency === 'TWD' ? 1 : num(d.rate),
+        twd: Math.round(amount * (d.currency === 'TWD' ? 1 : num(d.rate)) * 100) / 100,
+        category:d.category, pay:d.pay || '', date:d.date, note:d.note.trim(), createdAt: old?.createdAt || Date.now() };
+      if (old?.recurId) data.recurId = old.recurId;
+      if (old) Store.set('tx', id, data); else { const nid = Store.add('tx', data); preset.onSaved && preset.onSaved(nid); }
+      closeSheet(); toast('已儲存');
+    };
+    if (old) el.querySelector('#del').onclick = () => { if (confirm('確定刪除這筆紀錄？')) { Store.del('tx', id); closeSheet(); toast('已刪除'); } };
+  };
+  delete d.onSaved;
+  openSheet('', el => { body(el); if (!old) setTimeout(() => el.querySelector('#amt').focus(), 50); });
+}
+
+function simpleForm(title, fields, onSave, onDelete){
+  openSheet(`<h3>${title} <button class="icon-btn" data-close>✕</button></h3>
+    ${fields.map(f => `<label class="f">${f.label}</label>${f.options
+      ? `<select class="in-f" name="${f.name}">${f.options.map(o => { const [v,l] = Array.isArray(o) ? o : [o,o]; return `<option value="${esc(v)}" ${String(f.value) === String(v) ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`
+      : `<input class="in-f" name="${f.name}" type="${f.type || 'text'}" ${f.type === 'number' ? 'inputmode="decimal"' : ''} placeholder="${esc(f.ph || '')}" value="${esc(f.value ?? '')}">`}`).join('')}
+    <button class="btn block" id="save" style="margin-top:16px">儲存</button>
+    ${onDelete ? '<button class="btn block danger" id="del" style="margin-top:8px">刪除</button>' : ''}`, el => {
+    el.querySelector('[data-close]').onclick = closeSheet;
+    el.querySelector('#save').onclick = () => { const v = {}; el.querySelectorAll('[name]').forEach(i => v[i.name] = i.value.trim()); if (onSave(v) !== false) closeSheet(); };
+    if (onDelete) el.querySelector('#del').onclick = () => { if (confirm('確定刪除？')) { onDelete(); closeSheet(); } };
+    el.querySelector('input')?.focus();
+  });
+}
+
+/* ---------- 存錢：存入/取出同時記一筆「存錢」紀錄（不算支出） ---------- */
+function moveGoal(id, delta, date){
+  const g = S.goals[id]; if (!g) return;
+  const nv = Math.max(0, num(g.saved) + delta), d = nv - num(g.saved);
+  if (!d) return toast('目標裡沒有可取出的金額');
+  Store.set('goals', id, { saved:nv }, true);
+  Store.add('tx', { type:'saving', amount:Math.abs(d), currency:'TWD', rate:1, twd:d, category:'存錢', goalId:id, pay:'',
+    date, note:(d > 0 ? '存入 ' : '取出 ') + g.name, createdAt:Date.now() });
+}
+
+/* ---------- 動作 ---------- */
+const acts = {
+  editTx: b => { const id = b.dataset.id, t = S.tx[id];
+    if (t && t.type === 'saving') {
+      if (confirm('刪除這筆存錢紀錄？目標的已存金額會一併扣回。')) {
+        const g = S.goals[t.goalId];
+        if (g) Store.set('goals', t.goalId, { saved:Math.max(0, num(g.saved) - num(t.twd)) }, true);
+        Store.del('tx', id); toast('已刪除');
+      }
+      return;
+    }
+    openTx(id); },
+  addPlan: () => simpleForm('新增預計開支', [
+      { name:'name', label:'項目', ph:'例如：伙食費' },
+      { name:'category', label:'分類', options:cfg().expenseCats },
+      { name:'amount', label:'預計金額 (NT$)', type:'number' }],
+    v => { if (!v.name || num(v.amount) <= 0) { toast('請填項目與金額'); return false; }
+      const items = [...(S.plans[S.month]?.items || []), { id:newId(), name:v.name, category:v.category, amount:num(v.amount) }];
+      Store.set('plans', S.month, { items }); }),
+  delPlan: b => Store.set('plans', S.month, { items:(S.plans[S.month]?.items || []).filter(p => p.id !== b.dataset.id) }),
+  copyPlan: () => { Store.set('plans', S.month, { items:(S.plans[addMonth(S.month,-1)]?.items || []).map(p => ({ ...p, id:newId() })) }); toast('已複製上月預算'); },
+  addWish: () => simpleForm('新增想買的東西', [
+      { name:'name', label:'品項', ph:'例如：耳機' },
+      { name:'category', label:'分類', options:cfg().expenseCats, value:'購物' },
+      { name:'price', label:'預估價格 (NT$，可空白)', type:'number' }],
+    v => { if (!v.name) { toast('請填品項'); return false; }
+      Store.add('wish', { month:S.month, name:v.name, category:v.category, price:num(v.price), done:false, createdAt:Date.now() }); }),
+  delWish: b => { if (confirm('刪除這個項目？')) Store.del('wish', b.dataset.id); },
+  buyWish: b => { const id = b.dataset.id, w = S.wish[id];
+    openTx(null, { type:'expense', amount:w.price || '', category:w.category, note:w.name,
+      onSaved: txId => Store.set('wish', id, { done:true, txId }, true) }); },
+  goList: b => { const m = S.month, dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
+    S.filter = { q:'', type:b.dataset.type, cat:'', from:m + '-01', to:`${m}-${dim}` }; S.tab = 'list'; render(); scrollTo(0,0); },
+  clearFilter: () => { S.filter = { q:'', type:'', cat:'', from:'', to:'' }; render(); },
+  editGoal: b => { const id = b.dataset.id, g = id ? S.goals[id] : {};
+    simpleForm(id ? '編輯存錢目標' : '新增存錢目標', [
+      { name:'name', label:'目標名稱', ph:'例如：日本旅遊', value:g.name },
+      { name:'target', label:'目標金額 (NT$)', type:'number', value:g.target },
+      { name:'saved', label:'目前已存 (NT$)', type:'number', value:g.saved || 0 },
+      { name:'deadline', label:'期限（可空白）', type:'date', value:g.deadline || '' }],
+      v => { if (!v.name || num(v.target) <= 0) { toast('請填名稱與目標金額'); return false; }
+        const data = { name:v.name, target:num(v.target), saved:num(v.saved), deadline:v.deadline, createdAt:g.createdAt || Date.now() };
+        id ? Store.set('goals', id, data) : Store.add('goals', data); },
+      id ? () => Store.del('goals', id) : null); },
+  goalMove: b => { const id = b.dataset.id, sign = +b.dataset.sign, g = S.goals[id];
+    simpleForm(sign > 0 ? `存入「${esc(g.name)}」` : `從「${esc(g.name)}」取出`, [{ name:'v', label:'金額 (NT$)', type:'number' }],
+      v => { const a = num(v.v); if (a <= 0) { toast('請輸入金額'); return false; }
+        moveGoal(id, sign * a, today()); toast('已記錄，總覽同步更新'); }); },
+  goTab: b => { S.tab = b.dataset.tab; render(); scrollTo(0,0); },
+  sweep: () => { const m = S.month, txs = monthTx(m), avail = Math.round(sum(txs,'income') - sum(txs,'expense') - sum(txs,'saving'));
+    const gs = Object.entries(S.goals).sort((a,b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
+    const dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
+    simpleForm('把結餘存進目標', [
+      { name:'goal', label:'存到哪個目標', options:gs.map(([id,g]) => [id, g.name]) },
+      { name:'v', label:`金額 (NT$，本月可用 ${avail.toLocaleString('zh-TW')})`, type:'number', value:avail }],
+      v => { const a = num(v.v); if (a <= 0) { toast('請輸入金額'); return false; }
+        moveGoal(v.goal, a, m === thisMonth() ? today() : `${m}-${pad(dim)}`); toast('已存入'); }); },
+  editRecur: b => { const id = b.dataset.id, r = id ? S.recur[id] : { type:'expense', day:1, pay:'' };
+    simpleForm(id ? '編輯固定收支' : '新增固定收支', [
+      { name:'type', label:'類型', options:[['expense','支出'],['income','收入']], value:r.type },
+      { name:'name', label:'名稱', ph:'例如：房租、Netflix、薪水', value:r.name },
+      { name:'amount', label:'金額 (NT$)', type:'number', value:r.amount },
+      { name:'category', label:'分類 / 收入種類', options:[...cfg().expenseCats, ...cfg().incomeCats], value:r.category },
+      { name:'pay', label:'付款方式', options:[['','（不指定）'], ...cfg().payMethods], value:r.pay },
+      { name:'day', label:'每月幾號', type:'number', value:r.day },
+      { name:'paused', label:'狀態', options:[['','啟用'],['1','暫停']], value:r.paused ? '1' : '' }],
+      v => { if (!v.name || num(v.amount) <= 0) { toast('請填名稱與金額'); return false; }
+        const data = { type:v.type, name:v.name, amount:num(v.amount), category:v.category, pay:v.pay,
+          day:Math.min(31, Math.max(1, Math.round(num(v.day)) || 1)), paused:!!v.paused };
+        if (id) Store.set('recur', id, data, true);
+        else Store.add('recur', { ...data, startMonth:thisMonth(), applied:[] });
+        toast('本月起每月自動帶入'); },
+      id ? () => Store.del('recur', id) : null); },
+  addOpt: b => { const k = b.dataset.key, inp = $('#new_' + k), v = inp.value.trim();
+    if (!v) return; if (cfg()[k].includes(v)) return toast('已存在');
+    Store.set('settings', 'main', { [k]:[...cfg()[k], v] }, true); },
+  delOpt: b => { const k = b.dataset.key, arr = [...cfg()[k]];
+    if (arr.length <= 1) return toast('至少保留一項');
+    if (!confirm(`刪除「${arr[b.dataset.i]}」？（既有紀錄不受影響）`)) return;
+    arr.splice(+b.dataset.i, 1); Store.set('settings', 'main', { [k]:arr }, true); },
+  export: () => { const blob = new Blob([JSON.stringify({ tx:S.tx, plans:S.plans, wish:S.wish, recur:S.recur, goals:S.goals, settings:S.settings }, null, 2)], { type:'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `記帳備份-${today()}.json`; a.click(); },
+  logout: () => window.__logout && window.__logout()
+};
+document.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && acts[b.dataset.act]) acts[b.dataset.act](b); });
+document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); scrollTo(0,0); });
+$('#prevM').onclick = () => { S.month = addMonth(S.month,-1); render(); };
+$('#nextM').onclick = () => { S.month = addMonth(S.month,1); render(); };
+$('#fab').onclick = () => openTx(null);
+$('#view').addEventListener('input', e => {
+  const map = { fq:'q', ftype:'type', fcat:'cat', ffrom:'from', fto:'to' }, k = map[e.target.id];
+  if (!k) return; S.filter[k] = e.target.value;
+  const pos = e.target.selectionStart, id = e.target.id; render();
+  const n = document.getElementById(id); n.focus(); if (id === 'fq') n.setSelectionRange(pos, pos);
+});
+
+/* ---------- 啟動 ---------- */
+if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.projectId) {
+  start(localStore());
+} else {
+  const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+  const [A, Au, F] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+  const app = A.initializeApp(FIREBASE_CONFIG);
+  const auth = Au.getAuth(app);
+  const fdb = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
+  window.__logout = () => { if (confirm('確定登出？')) Au.signOut(auth).then(() => location.reload()); };
+  $('#loginBtn').onclick = async () => {
+    $('#loginErr').textContent = '';
+    try { await Au.signInWithPopup(auth, new Au.GoogleAuthProvider()); }
+    catch (e) { $('#loginErr').textContent = '登入失敗：' + (e.code || e.message); }
+  };
+  let started = false;
+  Au.onAuthStateChanged(auth, user => {
+    $('#login').classList.toggle('hidden', !!user);
+    if (user && !started) { started = true; start(firebaseStore(user, F, fdb)); }
+  });
+}
+</script>
+</body>
+</html>
