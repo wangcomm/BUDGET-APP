@@ -453,7 +453,7 @@ function viewSettings(){
     ${c[key].map((x,i) => `<span class="chip">${esc(x)}<span class="x" data-act="delOpt" data-key="${key}" data-i="${i}">✕</span></span>`).join('')}</div>
     <div class="flex" style="margin-top:10px"><input class="in-f" id="new_${key}" placeholder="新增…"><button class="arrow-btn" data-act="addOpt" data-key="${key}" aria-label="新增">→</button></div></div>`;
   const rs = Object.entries(S.recur).map(([id,r]) => ({ id, ...r }));
-  return `<div class="card"><h2>帳號</h2>
+  return `<div class="card"><h2>帳號 <small>版本 11/06</small></h2>
       <div class="hint">${Store.mode === 'firebase' ? '已登入：' + esc(Store.user.email || Store.user.displayName || '') + '（資料雲端同步）' : '本機試用模式（未同步）'}</div>
       <div class="flex" style="margin-top:10px">${Store.mode === 'firebase' ? '<button class="btn ghost" data-act="logout">登出</button>' : ''}
       <button class="btn ghost" data-act="export">匯出備份 (JSON)</button></div></div>
@@ -464,8 +464,9 @@ function viewSettings(){
       ${accList().length ? '' : '<button class="btn small" data-act="defaultAcc">建立現金＋銀行</button>'}<button class="arrow-btn" data-act="editAcc" aria-label="新增帳戶">→</button></div></div>
     <div class="card"><h2>固定收支 <small>每月自動帶入</small></h2>
       ${rs.length ? rs.map(r => `<div class="row tap" data-act="editRecur" data-id="${esc(r.id)}"><div class="main"><div class="title"><span class="tag">${esc(r.category)}</span>${esc(r.name)}</div>
-        <div class="sub">每月 ${r.day} 號${r.pay ? ' · ' + esc(r.pay) : ''}${r.paused ? ' · 已暫停' : ''}</div></div>
-        <div class="amt ${r.type === 'expense' ? 'exp' : 'inc'}">${r.type === 'expense' ? '-' : '+'}${money(r.amount).replace('NT$ ','')}</div></div>`).join('') : '<div class="empty">例如房租、訂閱、薪水</div>'}
+        <div class="sub">每月 ${r.day} 號${r.pay ? ' · ' + esc(r.pay) : ''}${r.paused ? ' · 已暫停' : ''}${S.tx[`r_${r.id}_${thisMonth()}`] ? ' · 本月已記入' : ''}</div></div>
+        <div class="amt ${r.type === 'expense' ? 'exp' : 'inc'}">${r.type === 'expense' ? '-' : '+'}${money(r.amount).replace('NT$ ','')}</div>
+        ${S.tx[`r_${r.id}_${thisMonth()}`] ? '' : `<button class="btn small" data-act="recurNow" data-id="${esc(r.id)}">記入本月</button>`}</div>`).join('') : '<div class="empty">例如房租、訂閱、薪水</div>'}
       <div class="flex" style="justify-content:flex-end;margin-top:6px"><button class="arrow-btn" data-act="editRecur" aria-label="新增固定收支">→</button></div></div>
     ${chipEdit('expenseCats','支出分類')}${chipEdit('incomeCats','收入種類')}${chipEdit('payMethods','付款方式')}`;
 }
@@ -669,6 +670,12 @@ const acts = {
       { name:'v', label:`金額 (NT$，本月可用 ${avail.toLocaleString('zh-TW')})`, type:'number', value:avail }],
       v => { const a = num(v.v); if (a <= 0) { toast('請輸入金額'); return false; }
         moveGoal(v.goal, a, m === thisMonth() ? today() : `${m}-${pad(dim)}`); toast('已存入'); }); },
+  recurNow: b => { const id = b.dataset.id, r = S.recur[id], m = thisMonth(); if (!r) return;
+    const dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
+    Store.set('tx', `r_${id}_${m}`, { type:r.type, amount:num(r.amount), currency:'TWD', rate:1, twd:num(r.amount),
+      category:r.category, pay:r.pay || '', account:r.account || '', date:`${m}-${pad(Math.min(r.day || 1, dim))}`, note:r.name, recurId:id, createdAt:Date.now() });
+    Store.set('recur', id, { applied:[...new Set([...(r.applied || []), m])], skipped:(r.skipped || []).filter(x => x !== m) }, true);
+    toast('已記入本月'); },
   editRecur: b => { const id = b.dataset.id, r = id ? S.recur[id] : { type:'expense', day:1, pay:'' };
     simpleForm(id ? '編輯固定收支' : '新增固定收支', [
       { name:'type', label:'類型', options:[['expense','支出'],['income','收入']], value:r.type },
