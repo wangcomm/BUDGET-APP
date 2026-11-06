@@ -220,7 +220,7 @@ function start(store){
 const tried = new Set();
 let applyingRecur = false;
 function applyRecurring(){
-  if (!S.fresh.recur || applyingRecur) return;
+  if (!S.fresh.recur || !S.fresh.tx || applyingRecur) return;
   applyingRecur = true;
   try { applyRecurringInner(); } finally { applyingRecur = false; }
 }
@@ -229,22 +229,26 @@ function applyRecurringInner(){
   const now = thisMonth(), td = today();
   for (const [id, r] of Object.entries(S.recur)) {
     if (r.paused) continue;
-    const applied = [...(r.applied || [])];
+    // 以「這個月的自動紀錄是否存在」判斷；只有你手動刪掉的月份（skipped）才不補
+    const applied = [...(r.applied || [])], skipped = r.skipped || [];
     let m = r.startMonth || now, n = 0, changed = false;
     if (m < addMonth(now, -24)) m = addMonth(now, -24);
     for (; m <= now && n < 30; m = addMonth(m, 1), n++) {
-      if (applied.includes(m) || tried.has(id + m)) continue;
+      if (S.tx[`r_${id}_${m}`] || skipped.includes(m) || tried.has(id + m)) continue;
       const dim = new Date(+m.slice(0,4), +m.slice(5), 0).getDate();
       const date = `${m}-${pad(Math.min(r.day || 1, dim))}`;
       if (date > td) continue;
       tried.add(id + m);
       Store.set('tx', `r_${id}_${m}`, { type:r.type, amount:num(r.amount), currency:'TWD', rate:1, twd:num(r.amount),
         category:r.category, pay:r.pay || '', account:r.account || '', date, note:r.name, recurId:id, createdAt:Date.now() });
-      applied.push(m); changed = true;
+      if (!applied.includes(m)) applied.push(m); changed = true;
     }
     if (changed) Store.set('recur', id, { applied }, true);
   }
 }
+
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { applyRecurring(); render(); } });
+setInterval(() => applyRecurring(), 30 * 60 * 1000);
 
 /* ---------- 匯率（open.er-api.com，免金鑰） ---------- */
 let rateData = null;
@@ -550,7 +554,10 @@ function openTx(id, preset = {}){
       if (old) Store.set('tx', id, data); else { const nid = Store.add('tx', data); preset.onSaved && preset.onSaved(nid); }
       closeSheet(); toast('已儲存');
     };
-    if (old) el.querySelector('#del').onclick = () => { if (confirm('確定刪除這筆紀錄？')) { Store.del('tx', id); closeSheet(); toast('已刪除'); } };
+    if (old) el.querySelector('#del').onclick = () => { if (confirm('確定刪除這筆紀錄？')) {
+      if (old.recurId && S.recur[old.recurId]) { const mm = (old.date || '').slice(0,7), sk = S.recur[old.recurId].skipped || [];
+        if (mm && !sk.includes(mm)) Store.set('recur', old.recurId, { skipped:[...sk, mm] }, true); }
+      Store.del('tx', id); closeSheet(); toast('已刪除'); } };
   };
   delete d.onSaved;
   openSheet('', el => { body(el); if (!old) setTimeout(() => el.querySelector('#amt').focus(), 50); });
